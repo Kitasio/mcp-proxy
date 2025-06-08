@@ -284,4 +284,26 @@ impl<R: Read, W: Write> Server<R, W> {
         self.writer.flush()?;
         Ok(())
     }
+
+    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        eprintln!("Server: Starting message loop...");
+        loop {
+            match self.handle_message() {
+                Ok(true) => {
+                    // Message handled, continue loop
+                }
+                Ok(false) => {
+                    // EOF detected, break loop
+                    eprintln!("Server: Client disconnected, shutting down.");
+                    return Ok(()); // Clean shutdown
+                }
+                Err(e) => {
+                    eprintln!("Server: Error handling message: {}", e);
+                    // Decide how to handle errors: return the error, or continue?
+                    // For now, let's return the error to stop the server.
+                    return Err(e);
+                }
+            }
+        }
+    }
 }
