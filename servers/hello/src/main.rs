@@ -16,12 +16,17 @@ impl<R: Read, W: Write> Server<R, W> {
     }
 
     /// Reads a single JSON-RPC request, processes it, and sends a response.
-    fn handle_request(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    /// Returns Ok(false) if EOF is reached, Ok(true) otherwise.
+    fn handle_request(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         // Read headers
         let mut headers = String::new();
         loop {
             let mut line = String::new();
-            self.reader.read_line(&mut line)?;
+            let bytes_read = self.reader.read_line(&mut line)?;
+            if bytes_read == 0 {
+                // EOF detected, client disconnected
+                return Ok(false);
+            }
             if line == "\r\n" {
                 break;
             }
@@ -60,7 +65,7 @@ impl<R: Read, W: Write> Server<R, W> {
         )?;
         self.writer.flush()?;
 
-        Ok(())
+        Ok(true) // Signal to continue
     }
 }
 
@@ -71,12 +76,20 @@ fn main() {
     let mut server = Server::new(stdin.lock(), stdout);
 
     loop {
-        if let Err(e) = server.handle_request() {
-            // In a real server, you might want more sophisticated error handling
-            // and potentially send a JSON-RPC error response.
-            eprintln!("Error handling request: {}", e);
-            // Depending on the error, you might break the loop or continue.
-            // For now, we'll just print and continue, assuming transient errors.
+        match server.handle_request() {
+            Ok(true) => {
+                // Request handled, continue loop
+            }
+            Ok(false) => {
+                // EOF detected, break loop
+                eprintln!("Client disconnected, shutting down server.");
+                break;
+            }
+            Err(e) => {
+                eprintln!("Error handling request: {}", e);
+                // For simplicity, break on any error for now.
+                break;
+            }
         }
     }
 }
