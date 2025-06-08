@@ -1,9 +1,42 @@
-use lib::jsonrpc::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
-use lib::types::{
-    ClientCapabilities, ClientInfo, ClientRootsCapabilities, InitializeParams, InitializeResult,
-};
+use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{ChildStdin, ChildStdout, Command, Stdio};
+
+use crate::jsonrpc::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
+use crate::server::InitializeResult;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientCapabilities {
+    pub roots: Option<ClientRootsCapabilities>,
+    pub sampling: Option<ClientSamplingCapabilities>,
+    pub experimental: Option<serde_json::Value>, // Use Value for flexibility
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientRootsCapabilities {
+    pub list_changed: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientSamplingCapabilities {} // Placeholder
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientInfo {
+    pub name: String,
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeParams {
+    pub protocol_version: String,
+    pub capabilities: ClientCapabilities,
+    pub client_info: ClientInfo,
+}
 
 pub struct Client {
     pub stdin: ChildStdin,

@@ -1,10 +1,8 @@
-use client::Client;
 use lib::{
+    client::Client,
     jsonrpc::{JsonRpcRequest, JsonRpcResponse},
     types::AddParams,
 };
-
-mod client;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Create a new client instance by spawning the server process and performing initialization.
