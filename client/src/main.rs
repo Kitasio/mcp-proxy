@@ -22,7 +22,68 @@ impl Client {
         let stdout = child.stdout.take().ok_or("Failed to take stdout")?;
         let reader = BufReader::new(stdout);
 
-        Ok(Client { stdin, reader })
+        let mut client = Client { stdin, reader };
+
+        // Perform Initialization Phase
+        client.initialize()?;
+
+        Ok(client)
+    }
+
+    /// Performs the JSON-RPC initialization handshake with the server.
+    fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("Client: Sending initialize request...");
+        let initialize_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            method: "initialize".to_string(),
+            params: InitializeParams {
+                protocol_version: "2025-03-26".to_string(),
+                capabilities: ClientCapabilities {
+                    roots: Some(ClientRootsCapabilities {
+                        list_changed: Some(true),
+                    }),
+                    sampling: None,
+                    experimental: None,
+                },
+                client_info: ClientInfo {
+                    name: "ExampleClient".to_string(),
+                    version: "1.0.0".to_string(),
+                },
+            },
+        };
+        self.send_request(&initialize_request)?;
+
+        println!("Client: Reading initialize response...");
+        let initialize_response: JsonRpcResponse<InitializeResult> = self.read_response()?;
+        println!("Client received: {:?}", initialize_response);
+
+        // Check for initialization errors or version mismatch (basic check for now)
+        if let Some(error) = initialize_response.error {
+            return Err(format!("Initialization failed: {:?}", error).into());
+        }
+        if let Some(result) = initialize_response.result {
+            if result.protocol_version != "2025-03-26" {
+                return Err(format!(
+                    "Unsupported server protocol version: {}",
+                    result.protocol_version
+                )
+                .into());
+            }
+            // TODO: Negotiate capabilities based on result.capabilities
+        } else {
+            return Err("Initialization response missing result or error".into());
+        }
+
+        println!("Client: Sending initialized notification...");
+        let initialized_notification = JsonRpcNotification {
+            jsonrpc: "2.0".to_string(),
+            method: "notifications/initialized".to_string(),
+        };
+        self.send_notification(&initialized_notification)?;
+        println!("Client: Initialization complete.");
+
+        Ok(())
     }
 
     /// Sends a JSON-RPC request to the server.
@@ -88,62 +149,10 @@ impl Client {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create a new client instance by spawning the server process.
+    // 1. Create a new client instance by spawning the server process and performing initialization.
     let mut client = Client::new("target/debug/hello")?;
 
-    // 2. Perform Initialization Phase
-    println!("Client: Sending initialize request...");
-    let initialize_request = JsonRpcRequest {
-        jsonrpc: "2.0".to_string(),
-        id: 1,
-        method: "initialize".to_string(),
-        params: InitializeParams {
-            protocol_version: "2025-03-26".to_string(),
-            capabilities: ClientCapabilities {
-                roots: Some(ClientRootsCapabilities {
-                    list_changed: Some(true),
-                }),
-                sampling: None,
-                experimental: None,
-            },
-            client_info: ClientInfo {
-                name: "ExampleClient".to_string(),
-                version: "1.0.0".to_string(),
-            },
-        },
-    };
-    client.send_request(&initialize_request)?;
-
-    println!("Client: Reading initialize response...");
-    let initialize_response: JsonRpcResponse<InitializeResult> = client.read_response()?;
-    println!("Client received: {:?}", initialize_response);
-
-    // Check for initialization errors or version mismatch (basic check for now)
-    if let Some(error) = initialize_response.error {
-        return Err(format!("Initialization failed: {:?}", error).into());
-    }
-    if let Some(result) = initialize_response.result {
-        if result.protocol_version != "2025-03-26" {
-            return Err(format!(
-                "Unsupported server protocol version: {}",
-                result.protocol_version
-            )
-            .into());
-        }
-        // TODO: Negotiate capabilities based on result.capabilities
-    } else {
-        return Err("Initialization response missing result or error".into());
-    }
-
-    println!("Client: Sending initialized notification...");
-    let initialized_notification = JsonRpcNotification {
-        jsonrpc: "2.0".to_string(),
-        method: "notifications/initialized".to_string(),
-    };
-    client.send_notification(&initialized_notification)?;
-    println!("Client: Initialization complete.");
-
-    // 3. Operation Phase (Send the add request)
+    // 2. Operation Phase (Send the add request)
     println!("Client: Sending add request...");
     let add_request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
