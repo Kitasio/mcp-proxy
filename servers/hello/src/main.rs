@@ -1,5 +1,8 @@
 use lib::{AddParams, JsonRpcRequest, JsonRpcResponse};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::{
+    collections::HashMap,
+    io::{self, BufRead, BufReader, Read, Write},
+};
 
 struct Server<R, W> {
     reader: BufReader<R>,
@@ -19,25 +22,30 @@ impl<R: Read, W: Write> Server<R, W> {
     /// Returns Ok(false) if EOF is reached, Ok(true) otherwise.
     fn handle_request(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         // Read headers
-        let mut headers = String::new();
+        let mut headers = HashMap::new();
         loop {
             let mut line = String::new();
             let bytes_read = self.reader.read_line(&mut line)?;
             if bytes_read == 0 {
-                // EOF detected, client disconnected
-                return Ok(false);
+                return Ok(false); // Client disconnected
             }
-            if line == "\r\n" {
-                break;
+
+            let line = line.trim();
+            if line.is_empty() {
+                break; // End of headers
             }
-            headers.push_str(&line);
+
+            if let Some((key, value)) = line.split_once(':') {
+                headers.insert(key.trim().to_lowercase(), value.trim().to_string());
+            }
         }
 
+        // Safely extract Content-Length
         let content_length = headers
-            .lines()
-            .find_map(|line| line.strip_prefix("Content-Length: "))
-            .and_then(|s| s.trim().parse::<usize>().ok())
-            .ok_or("Missing Content-Length header")?;
+            .get("content-length")
+            .ok_or("Missing Content-Length header")?
+            .parse::<usize>()
+            .map_err(|_| "Invalid Content-Length")?;
 
         // Read body
         let mut body = vec![0; content_length];
