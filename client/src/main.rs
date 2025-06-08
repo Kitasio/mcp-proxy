@@ -8,6 +8,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Create a new client instance by spawning the server process and performing initialization.
     let mut client = Client::new("target/debug/hello")?;
 
+    let tools = client.list_tools(None).unwrap();
+    println!("Available tools: {:#?}", tools);
+
     // 2. Operation Phase (Send the add request)
     println!("Client: Sending add request...");
     let add_request = JsonRpcRequest {

@@ -57,7 +57,7 @@ use std::{
 use crate::{
     client::InitializeParams,
     jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse},
-    types::AddParams,
+    types::{AddParams, Tool, ToolsListParams, ToolsListResult},
 };
 
 #[derive(Copy, Clone)]
@@ -191,6 +191,42 @@ impl<R: Read, W: Write> Server<R, W> {
                 let response = JsonRpcResponse {
                     jsonrpc: "2.0".to_string(),
                     result: Some(result),
+                    error: None,
+                    id: request.id,
+                };
+                self.send_response(&response)?;
+                Ok(true)
+            }
+            (ServerState::Initialized, "tools/list") => {
+                eprintln!("Server: Received tools/list request");
+                let request: JsonRpcRequest<ToolsListParams> = serde_json::from_value(raw_message)?;
+
+                // For now, return a hardcoded list of tools.
+                // In a real server, this would involve looking up available tools.
+                let tools = vec![
+                    Tool {
+                        name: "get_weather".to_string(),
+                        description: "Get current weather information for a location".to_string(),
+                        input_schema: serde_json::json!({
+                          "type": "object",
+                          "properties": {
+                            "location": {
+                              "type": "string",
+                              "description": "City name or zip code"
+                            }
+                          },
+                          "required": ["location"]
+                        }),
+                    },
+                    // Add more tools here if needed
+                ];
+
+                let response = JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: Some(ToolsListResult {
+                        tools,
+                        next_cursor: None, // No pagination for now
+                    }),
                     error: None,
                     id: request.id,
                 };
