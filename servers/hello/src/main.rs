@@ -1,7 +1,8 @@
-use lib::{
-    AddParams, InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
-    ServerCapabilities, ServerInfo, ServerLoggingCapabilities, ServerPromptsCapabilities,
-    ServerResourcesCapabilities, ServerToolsCapabilities,
+use lib::jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
+use lib::types::{
+    AddParams, InitializeParams, InitializeResult, ServerCapabilities, ServerInfo,
+    ServerLoggingCapabilities, ServerPromptsCapabilities, ServerResourcesCapabilities,
+    ServerToolsCapabilities,
 };
 use std::{
     collections::HashMap,

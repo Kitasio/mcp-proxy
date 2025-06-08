@@ -1,6 +1,7 @@
-use lib::{
+use lib::jsonrpc::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
+use lib::types::{
     AddParams, ClientCapabilities, ClientInfo, ClientRootsCapabilities, InitializeParams,
-    InitializeResult, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse,
+    InitializeResult,
 };
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{ChildStdin, ChildStdout, Command, Stdio};
