@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Read, Write},
 };
 
 use crate::{
@@ -66,17 +66,21 @@ pub enum ServerState {
     Initialized,
 }
 
-pub struct Server<R, W> {
-    pub reader: BufReader<R>,
-    pub writer: W,
+pub struct Server {
+    pub reader: BufReader<io::StdinLock<'static>>,
+    pub writer: io::Stdout,
     pub state: ServerState,
 }
 
-impl<R: Read, W: Write> Server<R, W> {
-    /// Creates a new Server instance.
-    pub fn new(reader: R, writer: W) -> Self {
+impl Server {
+    /// Creates a new Server instance reading from stdin and writing to stdout.
+    pub fn new() -> Self {
+        let stdin = io::stdin();
+        let reader = BufReader::new(stdin.lock());
+        let writer = io::stdout();
+
         Server {
-            reader: BufReader::new(reader),
+            reader,
             writer,
             state: ServerState::Uninitialized,
         }
