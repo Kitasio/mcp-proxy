@@ -1,31 +1,53 @@
-use lib::{
-    client::Client,
-    jsonrpc::{JsonRpcRequest, JsonRpcResponse},
-    types::AddParams,
-};
+use lib::client::Client;
+use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Create a new client instance by spawning the server process and performing initialization.
+    // Create a new client instance by spawning the server process and performing initialization.
     let mut client = Client::new("target/debug/hello")?;
 
-    let tools = client.list_tools(None).unwrap();
-    println!("Available tools: {:#?}", tools);
+    println!("Client initialized. Type '/list' to see available tools or type your command.");
 
-    // 2. Operation Phase (Send the add request)
-    println!("Client: Sending add request...");
-    let add_request = JsonRpcRequest {
-        jsonrpc: "2.0".to_string(),
-        method: "add".to_string(),
-        params: AddParams { a: 3, b: 4 },
-        id: 2, // Use a different ID for the next request
-    };
-    client.send_request(&add_request)?;
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+    let mut input = String::new();
 
-    println!("Client: Reading add response...");
-    let add_response: JsonRpcResponse<i64> = client.read_response()?;
+    loop {
+        // Prompt the user
+        print!("> ");
+        stdout.flush()?;
 
-    // 4. Print the received response.
-    println!("Client received: {:?}", add_response);
+        // Read user input
+        input.clear();
+        stdin.read_line(&mut input)?;
+        let command = input.trim();
 
-    Ok(())
+        if command.is_empty() {
+            continue;
+        }
+
+        match command {
+            "/list" => {
+                match client.list_tools(None) {
+                    Ok(tools_result) => {
+                        println!("Available tools:");
+                        for tool in tools_result.tools {
+                            println!("  - Name: {}", tool.name);
+                            println!("    Description: {}", tool.description);
+                            // Optionally print schema: println!("    Schema: {}", tool.input_schema);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error listing tools: {}", e);
+                    }
+                }
+            }
+            // Add more commands here later
+            _ => {
+                println!("Unknown command: {}", command);
+                println!("Type '/list' to see available tools.");
+            }
+        }
+    }
+
+    // Note: The client will exit when the user presses Ctrl+C or the server process ends.
 }

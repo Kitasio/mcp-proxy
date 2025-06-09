@@ -1,4 +1,14 @@
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+};
+
+use crate::{
+    client::InitializeParams,
+    jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse},
+    types::{AddParams, Tool, ToolsListParams, ToolsListResult},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,17 +58,6 @@ pub struct InitializeResult {
     pub server_info: ServerInfo,
     pub instructions: Option<String>,
 }
-
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
-};
-
-use crate::{
-    client::InitializeParams,
-    jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse},
-    types::{AddParams, Tool, ToolsListParams, ToolsListResult},
-};
 
 #[derive(Copy, Clone)]
 pub enum ServerState {

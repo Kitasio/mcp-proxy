@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::jsonrpc::JsonRpcResponse;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AddParams {
     pub a: i64,
@@ -25,4 +27,8 @@ pub struct ToolsListParams {
 pub struct ToolsListResult {
     pub tools: Vec<Tool>,
     pub next_cursor: Option<String>,
+}
+
+pub trait ToolsOperations {
+    fn list_tools(self) -> JsonRpcResponse<ToolsListResult>;
 }
