@@ -4,7 +4,7 @@ use std::process::{ChildStdin, ChildStdout, Command, Stdio};
 
 use crate::jsonrpc::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use crate::server::InitializeResult;
-use crate::types::{ToolsListParams, ToolsListResult};
+use crate::types::{ToolsCallParams, ToolsCallResult, ToolsListParams, ToolsListResult};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -207,6 +207,36 @@ impl Client {
             Ok(result)
         } else {
             Err("tools/list response missing result or error".into())
+        }
+    }
+
+    /// Sends a tools/call request to the server and returns the result.
+    pub fn call_tool(
+        &mut self,
+        name: String,
+        arguments: serde_json::Value,
+    ) -> Result<ToolsCallResult, Box<dyn std::error::Error>> {
+        println!("Client: Sending tools/call request for '{}'...", name);
+        // TODO: Use a proper request ID manager
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: 3, // Increment from previous requests
+            method: "tools/call".to_string(),
+            params: ToolsCallParams { name, arguments },
+        };
+        self.send_request(&request)?;
+
+        println!("Client: Reading tools/call response...");
+        let response: JsonRpcResponse<ToolsCallResult> = self.read_response()?;
+        println!("Client received: {:?}", response);
+
+        if let Some(error) = response.error {
+            return Err(format!("tools/call request failed: {:?}", error).into());
+        }
+        if let Some(result) = response.result {
+            Ok(result)
+        } else {
+            Err("tools/call response missing result or error".into())
         }
     }
 }

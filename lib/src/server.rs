@@ -7,7 +7,7 @@ use std::{
 use crate::{
     client::InitializeParams,
     jsonrpc::{JsonRpcError, JsonRpcRequest, JsonRpcResponse},
-    types::{AddParams, Tool, ToolsListParams, ToolsListResult},
+    types::{AddParams, Tool, ToolImplementation, ToolsCallParams, ToolsCallResult, ToolsListParams, ToolsListResult},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,6 +70,7 @@ pub struct Server {
     pub reader: BufReader<io::StdinLock<'static>>,
     pub writer: io::Stdout,
     pub state: ServerState,
+    pub tools: HashMap<String, Box<dyn ToolImplementation>>,
 }
 
 impl Server {
@@ -83,7 +84,14 @@ impl Server {
             reader,
             writer,
             state: ServerState::Uninitialized,
+            tools: HashMap::new(),
         }
+    }
+
+    /// Register a tool implementation
+    pub fn register_tool(&mut self, tool: Box<dyn ToolImplementation>) {
+        let tool_def = tool.get_tool();
+        self.tools.insert(tool_def.name.clone(), tool);
     }
 
     /// Reads a single JSON-RPC message, processes it, and sends a response if applicable.
@@ -204,25 +212,10 @@ impl Server {
                 eprintln!("Server: Received tools/list request");
                 let request: JsonRpcRequest<ToolsListParams> = serde_json::from_value(raw_message)?;
 
-                // For now, return a hardcoded list of tools.
-                // In a real server, this would involve looking up available tools.
-                let tools = vec![
-                    Tool {
-                        name: "get_weather".to_string(),
-                        description: "Get current weather information for a location".to_string(),
-                        input_schema: serde_json::json!({
-                          "type": "object",
-                          "properties": {
-                            "location": {
-                              "type": "string",
-                              "description": "City name or zip code"
-                            }
-                          },
-                          "required": ["location"]
-                        }),
-                    },
-                    // Add more tools here if needed
-                ];
+                // Get tools from registered implementations
+                let tools: Vec<Tool> = self.tools.values()
+                    .map(|tool_impl| tool_impl.get_tool())
+                    .collect();
 
                 let response = JsonRpcResponse {
                     jsonrpc: "2.0".to_string(),
@@ -232,6 +225,32 @@ impl Server {
                     }),
                     error: None,
                     id: request.id,
+                };
+                self.send_response(&response)?;
+                Ok(true)
+            }
+            (ServerState::Initialized, "tools/call") => {
+                eprintln!("Server: Received tools/call request");
+                let request: JsonRpcRequest<ToolsCallParams> = serde_json::from_value(raw_message)?;
+
+                let response = if let Some(tool_impl) = self.tools.get(&request.params.name) {
+                    let result = tool_impl.call(request.params.arguments);
+                    JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        result: Some(result),
+                        error: None,
+                        id: request.id,
+                    }
+                } else {
+                    JsonRpcResponse {
+                        jsonrpc: "2.0".to_string(),
+                        result: None,
+                        error: Some(JsonRpcError {
+                            code: -32602, // Invalid params
+                            message: format!("Unknown tool: {}", request.params.name),
+                        }),
+                        id: request.id,
+                    }
                 };
                 self.send_response(&response)?;
                 Ok(true)
